@@ -1,0 +1,67 @@
+[
+    {
+        "itemNo": "001",
+        "description": "Concrete Work",
+        "rate": 50,
+        "rateInWords": "Rupees 50 only",
+        "per": 1,
+        "unit": "sqm",
+        "category": "Labour",
+        "city": "Mumbai",
+        "vendorName": "Vendor A",
+        "vendorPhone": "123-456-7890",
+        "vendorAddress": "123 Main St"
+    },
+    {
+        "itemNo": "002",
+        "description": "Steel Reinforcement",
+        "rate": 30,
+        "rateInWords": "Rupees 30 only",
+        "per": 1,
+        "unit": "kg",
+        "category": "Material",
+        "city": "Delhi",
+        "vendorName": "Vendor B",
+        "vendorPhone": "098-765-4321",
+        "vendorAddress": "456 Side Rd"
+    },
+    {
+        "itemNo": "003",
+        "description": "Formwork",
+        "rate": 20,
+        "rateInWords": "Rupees 20 only",
+        "per": 1,
+        "unit": "m2",
+        "category": "Labour",
+        "city": "Bangalore",
+        "vendorName": "Vendor C",
+        "vendorPhone": "111-222-3333",
+        "vendorAddress": "789 Back St"
+    },
+    {
+        "itemNo": "004",
+        "description": "Crane Hire",
+        "rate": 500,
+        "rateInWords": "Rupees 500 only",
+        "per": 1,
+        "unit": "day",
+        "category": "Hire Charges",
+        "city": "Chennai",
+        "vendorName": "Vendor D",
+        "vendorPhone": "444-555-6666",
+        "vendorAddress": "101 Hire St"
+    },
+    {
+        "itemNo": "005",
+        "description": "Miscellaneous Item",
+        "rate": 10,
+        "rateInWords": "Rupees 10 only",
+        "per": 1,
+        "unit": "unit",
+        "category": "Other",
+        "city": "Hyderabad",
+        "vendorName": "Vendor E",
+        "vendorPhone": "777-888-9999",
+        "vendorAddress": "202 Other Rd"
+    }
+]
