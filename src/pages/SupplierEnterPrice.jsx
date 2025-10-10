@@ -1,201 +1,226 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+
+// Dummy data for initial testing
+const dummyEnquiries = [
+    {
+        _id: "1",
+        materialName: "Cement",
+        description: "High-quality cement for construction",
+        category: "CONCRETE WORK",
+        quotes: [],
+    },
+    {
+        _id: "2",
+        materialName: "Steel Rods",
+        description: "TMT steel rods, 12mm diameter",
+        category: "STEEL WORK",
+        quotes: [],
+    },
+    {
+        _id: "3",
+        materialName: "Paint",
+        description: "Exterior wall paint, 20L",
+        category: "FINISHING",
+        quotes: [],
+    },
+];
 
 export default function SupplierEnterPrice() {
-    const [allMaterials, setAllMaterials] = useState([]); // all fetched materials
-    const [materials, setMaterials] = useState([]); // filtered materials
-    const [categories, setCategories] = useState([]);
-    const [form, setForm] = useState({
-        material: "",
-        price: "",
-        currency: "USD",
-        unit: "ton",
-        availability: "In Stock",
-        supplierName: "Akros Supplier", // test supplier name
-        category: "",
-    });
+    const [enquiries, setEnquiries] = useState([]);
+    const [categories] = useState([
+        "All",
+        "ALUMINIUM WORK",
+        "BRICK WORK",
+        "CONCRETE WORK",
+        "DEMOLISHEN",
+        "DRAINAGE",
+        "EARTHWORK",
+        "FINISHING",
+        "FLOORING",
+        "HIRE CHARGES",
+        "LABOUR",
+        "LANDSCAPING",
+        "MARBLE WORK",
+        "MISCELLANEUS",
+        "MORTARS",
+        "Material",
+        "Misc",
+        "PILE WORK",
+        "RCC",
+        "REPAIRS",
+        "ROAD WORK",
+        "ROOFING",
+        "SANITARY",
+        "STEEL WORK",
+        "STONE WORK",
+        "WATER PROOFING",
+        "WOOD WORK",
+    ]);
+    const [selectedCategory, setSelectedCategory] = useState("All");
+    const [activeEnquiry, setActiveEnquiry] = useState(null); // modal active enquiry
+    const [rate, setRate] = useState("");
+    const [unit, setUnit] = useState("");
+    const [per, setPer] = useState("1");
 
-    // Fetch materials
+    const supplierName = "Akros Supplier"; // example supplier
+
+    // Load dummy data initially
     useEffect(() => {
-        fetch("http://localhost:4000/api/materials")
-            .then((res) => res.json())
-            .then((data) => {
-                console.log("Fetched materials:", data);
-                setAllMaterials(data);
-
-                // Extract unique categories
-                const uniqueCategories = [...new Set(data.map((m) => m.category))];
-                setCategories(uniqueCategories);
-
-                // Optionally set the first category as default
-                if (uniqueCategories.length > 0) setForm((prev) => ({ ...prev, category: uniqueCategories[0] }));
-            })
-            .catch((err) => console.error(err));
+        setEnquiries(dummyEnquiries);
     }, []);
 
-    // Filter materials whenever category or allMaterials change
-    useEffect(() => {
-        if (!form.category) return;
+    // Filtered enquiries by category & excluding already quoted
+    const filteredEnquiries = enquiries.filter(
+        (e) =>
+            (selectedCategory === "All" || e.category === selectedCategory) &&
+            (!e.quotes || !e.quotes.some((q) => q.supplierName === supplierName))
+    );
 
-        const filtered = allMaterials
-            .filter((m) => m.category === form.category) // filter by category
-            .filter(
-                (m) =>
-                    !m.prices || !m.prices.some((p) => p.supplierName === form.supplierName)
-            ); // filter by supplier
-
-        console.log(
-            `Materials available for ${form.supplierName} in category "${form.category}":`,
-            filtered.map((m) => m.name)
-        );
-
-        setMaterials(filtered);
-        setForm((prev) => ({ ...prev, material: "" })); // reset selected material
-    }, [form.category, allMaterials, form.supplierName]);
-
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await fetch("http://localhost:4000/api/material-suppliers", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(form),
-            });
-
-            if (!res.ok) throw new Error("Failed to add price");
-            console.log("Response status:", res);
-            const data = await res.json();
-            alert("✅ Price entry added for " + data.materialName);
-
-            setForm({
-                material: "",
-                price: "",
-                currency: "USD",
-                unit: "ton",
-                availability: "In Stock",
-                supplierName: form.supplierName,
-                category: form.category,
-            });
-        } catch (err) {
-            console.error(err);
-            alert("❌ Error adding price entry");
+    const handleQuoteSubmit = (enquiryId) => {
+        if (!rate || !unit) {
+            alert("Please fill in rate and unit.");
+            return;
         }
+
+        // Simulate API call
+        const updatedEnquiries = enquiries.map((e) => {
+            if (e._id === enquiryId) {
+                return {
+                    ...e,
+                    quotes: [...(e.quotes || []), { supplierName, rate, unit, per }],
+                };
+            }
+            return e;
+        });
+        setEnquiries(updatedEnquiries);
+        alert(`✅ Quote submitted for enquiry ${enquiryId}`);
+        closeModal();
     };
+
+    const handleReject = (enquiryId) => {
+        const comment = prompt("Enter reason for rejection:");
+        if (!comment) return alert("Rejection comment required.");
+
+        // Simulate API call
+        const updatedEnquiries = enquiries.filter((e) => e._id !== enquiryId);
+        setEnquiries(updatedEnquiries);
+        alert(`❌ Enquiry rejected: ${comment}`);
+        closeModal();
+    };
+
+    const openModal = (enquiry) => {
+        setActiveEnquiry(enquiry);
+        setRate("");
+        setUnit("");
+        setPer("1");
+    };
+
+    const closeModal = () => setActiveEnquiry(null);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex justify-center items-center p-6">
-            <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-xl border border-gray-100">
-                <h1 className="text-3xl font-extrabold text-center text-blue-700 mb-6">
-                    💰 Supplier Material Pricing
-                </h1>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-6 flex flex-col items-center">
+            <h1 className="text-3xl font-extrabold text-blue-700 mb-6 text-center">
+                💰 Supplier Enquiries
+            </h1>
 
-                <div className="text-center mb-6">
-                    <p className="text-lg font-semibold text-gray-700">
-                        👋 Welcome, <span className="text-blue-600">{form.supplierName}</span>
-                    </p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Category dropdown */}
-                    <div>
-                        <label className="block text-gray-700 font-medium mb-1">Category</label>
-                        <select
-                            name="category"
-                            value={form.category}
-                            onChange={handleChange}
-                            required
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                        >
-                            <option value="">Select Category</option>
-                            {categories.map((cat) => (
-                                <option key={cat} value={cat}>
-                                    {cat}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Material dropdown */}
-                    <div>
-                        <label className="block text-gray-700 font-medium mb-1">Material</label>
-                        <select
-                            name="material"
-                            value={form.material}
-                            onChange={handleChange}
-                            required
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                        >
-                            <option value="">Select Material</option>
-                            {materials.map((m) => (
-                                <option key={m._id} value={m._id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Price, currency, unit */}
-                    <div>
-                        <label className="block text-gray-700 font-medium mb-1">Price</label>
-                        <input
-                            name="price"
-                            type="number"
-                            placeholder="Enter price"
-                            value={form.price}
-                            onChange={handleChange}
-                            required
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-gray-700 font-medium mb-1">Currency</label>
-                            <input
-                                name="currency"
-                                value={form.currency}
-                                onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-gray-700 font-medium mb-1">Unit</label>
-                            <input
-                                name="unit"
-                                value={form.unit}
-                                onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Availability */}
-                    <div>
-                        <label className="block text-gray-700 font-medium mb-1">Availability</label>
-                        <select
-                            name="availability"
-                            value={form.availability}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                        >
-                            <option value="In Stock">In Stock</option>
-                            <option value="Low Stock">Low Stock</option>
-                            <option value="Out of Stock">Out of Stock</option>
-                        </select>
-                    </div>
-
-                    <button
-                        type="submit"
-                        className="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-[1.02]"
-                    >
-                        💾 Save Price
-                    </button>
-                </form>
+            {/* Category Selector */}
+            <div className="w-full max-w-xl mb-6">
+                <label className="block text-gray-700 font-medium mb-2">Category</label>
+                <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                >
+                    {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                            {cat}
+                        </option>
+                    ))}
+                </select>
             </div>
+
+            {/* Enquiry List */}
+            <div className="w-full max-w-xl flex flex-col gap-4">
+                {filteredEnquiries.length === 0 ? (
+                    <p className="text-gray-500">No enquiries available for this category.</p>
+                ) : (
+                    filteredEnquiries.map((enquiry) => (
+                        <div
+                            key={enquiry._id}
+                            className="p-4 border border-gray-200 rounded-lg shadow hover:shadow-lg cursor-pointer bg-white transition"
+                            onClick={() => openModal(enquiry)}
+                        >
+                            <h2 className="font-semibold text-gray-700">{enquiry.materialName}</h2>
+                            <p className="text-gray-600 text-sm">{enquiry.description}</p>
+                            <p className="text-gray-500 text-xs mt-1">Category: {enquiry.category}</p>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* Modal */}
+            {activeEnquiry && (
+                <div
+                    className="fixed inset-0 flex items-center justify-center bg-black/50 z-50"
+                    onClick={closeModal}
+                >
+                    <div
+                        className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 className="text-2xl font-bold mb-4 text-gray-700">
+                            {activeEnquiry.materialName}
+                        </h2>
+                        <p className="text-gray-600 mb-4">{activeEnquiry.description}</p>
+                        <p className="text-gray-500 mb-4">Category: {activeEnquiry.category}</p>
+
+                        <div className="flex flex-col gap-2 mb-4">
+                            <input
+                                type="number"
+                                placeholder="Rate"
+                                value={rate}
+                                onChange={(e) => setRate(e.target.value)}
+                                className="border border-gray-300 rounded-lg px-3 py-2"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Unit"
+                                value={unit}
+                                onChange={(e) => setUnit(e.target.value)}
+                                className="border border-gray-300 rounded-lg px-3 py-2"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Per"
+                                value={per}
+                                onChange={(e) => setPer(e.target.value)}
+                                className="border border-gray-300 rounded-lg px-3 py-2"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={closeModal}
+                                className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleReject(activeEnquiry._id)}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                                Reject
+                            </button>
+                            <button
+                                onClick={() => handleQuoteSubmit(activeEnquiry._id)}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                            >
+                                Submit Quote
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

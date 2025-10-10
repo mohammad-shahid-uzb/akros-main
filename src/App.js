@@ -18,6 +18,7 @@ import PricesPage from "./pages/PricesPage";
 import MaterialsPage from "./pages/AdminCreateMaterial";
 import SupplierRegistrationPage from "./pages/SupplierRegister";
 import SupplierPricePage from "./pages/SupplierEnterPrice";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
     return (
@@ -41,6 +42,7 @@ function App() {
                     <Route path="/materials" element={<MaterialsPage />} />
                     <Route path="/suppliers" element={<SupplierRegistrationPage />} />
                     <Route path="/supplier-prices" element={<SupplierPricePage />} />
+                    <Route path="/admin" element={<AdminDashboard />} />
                 </Routes>
             </div>
             <Footer />

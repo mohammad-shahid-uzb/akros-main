@@ -58,6 +58,15 @@ const Navbar = () => {
                             <ul className="absolute left-0 bg-gray-800 text-white rounded-lg mt-2 p-2 shadow-lg min-w-[220px] flex flex-col gap-2 z-50">
                                 <li>
                                     <Link
+                                        to="/admin"
+                                        className="block px-2 py-1 hover:text-yellow-400"
+                                        onClick={() => setDesktopDropdownOpen(false)}
+                                    >
+                                        Admin Dashboard
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link
                                         to="/prices"
                                         className="block px-2 py-1 hover:text-yellow-400"
                                         onClick={() => setDesktopDropdownOpen(false)}
