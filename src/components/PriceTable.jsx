@@ -27,7 +27,7 @@ const PriceTable = ({ data }) => {
                 </thead>
                 <tbody>
                     {data.map(item => {
-                        console.log(item)
+
                         return (
                             <tr key={item._id} className="hover:bg-gray-50">
                                 <td className="border px-4 py-2">{item.materialName || "-"}</td>

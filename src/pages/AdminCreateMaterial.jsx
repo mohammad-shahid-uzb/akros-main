@@ -44,7 +44,7 @@ export default function AdminCreateMaterial() {
             if (!res.ok) throw new Error("Failed to create material");
 
             const data = await res.json();
-            console.log("Material created:", data);
+
             if (data.exists) {
                 setStatus(`⚠️ Material already exists: ${data.data.name}`);
             } else {

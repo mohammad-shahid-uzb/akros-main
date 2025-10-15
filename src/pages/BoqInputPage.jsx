@@ -35,7 +35,6 @@ function BoqInputPage() {
         const fetchRates = async () => {
             try {
                 const res = await axios.get(`${API_BASE_URL}/rates`);
-                console.log("Rate List from backend:", res.data.data);
                 setRateList(res.data.data || []); // Assuming rates are in res.data.data
             } catch (err) {
                 console.error("Failed to fetch rate list:", err);

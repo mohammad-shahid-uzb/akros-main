@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 
-// Dummy vendors with Telegram info
-const dummyVendors = [
-    { id: 1, name: "Vendor A", category: ["PLUMBING"], city: "Tashkent", email: "a@example.com", telegramChatId: "123456789", phone: "+998901234567" },
-    { id: 2, name: "Vendor B", category: ["ELECTRICAL"], city: "Tashkent", email: "b@example.com", telegramChatId: "987654321", phone: "+998901234568" },
-    { id: 3, name: "Vendor C", category: ["PLUMBING", "ELECTRICAL"], city: "Samarkand", email: "c@example.com", telegramChatId: "456789123", phone: "+998901234569" },
-    { id: 4, name: "Vendor D", category: ["Carpentry"], city: "Tashkent", email: "d@example.com", telegramChatId: "789123456", phone: "+998901234570" },
-    { id: 5, name: "Vendor E", category: ["PLUMBING"], city: "Tashkent", email: "e@example.com", telegramChatId: "321654987", phone: "+998901234571" },
-];
 
 const dummyPastSelections = [
     { vendorId: 1, category: "PLUMBING", city: "Tashkent" },
@@ -75,9 +67,8 @@ const apiService = {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    enquiryId: enquiryData.id,
-                    vendorIds: vendorIds,
-                    enquiryDetails: enquiryData,
+                    vendorIds: vendorIds,      // ✅ use function parameter
+                    enquiry: enquiryData,
                 }),
             });
 
@@ -90,8 +81,8 @@ const apiService = {
             console.error('Error sending Telegram notifications:', error);
             throw error;
         }
-    }
-};
+    },
+}
 
 
 export default function EnquiryModal({
@@ -101,6 +92,7 @@ export default function EnquiryModal({
     initialData,
     categories = DEFAULT_CATEGORIES
 }) {
+
     const [form, setForm] = useState({
         title: "",
         category: "",
@@ -111,13 +103,16 @@ export default function EnquiryModal({
         status: "Open",
     });
 
+    const [vendors, setVendors] = useState([]);
     const [vendorSearch, setVendorSearch] = useState("");
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState(null);
 
+    // ✅ Fetch vendors when modal opens
     useEffect(() => {
         if (show) {
+            // Reset form
             if (initialData) {
                 setForm(initialData);
             } else {
@@ -131,15 +126,48 @@ export default function EnquiryModal({
                     status: "Open",
                 });
             }
+
             setErrors({});
             setVendorSearch("");
             setSubmitStatus(null);
+
+            // ✅ Fetch from backend
+            (async () => {
+
+                try {
+                    const response = await fetch(`${API_BASE}/api/suppliers`);
+                    if (!response.ok) throw new Error("Failed to fetch vendors");
+
+
+                    const data = await response.json();
+
+
+                    // ✅ Normalize vendor data
+                    const normalized = data.map((v) => ({
+                        id: v._id,
+                        name: v.name,
+                        category: v.category || [],
+                        city: v.location?.city || "",
+                        email: v.contact?.email || "",
+                        phone: v.contact?.phone || "",
+                        telegramChatId: v.telegramChatId || "",
+                        status: v.status || "pending",
+                    }));
+
+
+                    setVendors(normalized);
+                } catch (err) {
+                    console.error("❌ [ERROR] Fetching vendors failed:", err);
+                    setVendors([]);
+                }
+            })();
         }
     }, [show, initialData]);
 
+
     const cities = useMemo(() => {
-        return Array.from(new Set(dummyVendors.map((v) => v.city))).sort();
-    }, []);
+        return Array.from(new Set(vendors.map((v) => v.city))).sort();
+    }, [vendors]);
 
     const getVendorScore = useCallback((vendor) => {
         let score = 0;
@@ -164,10 +192,10 @@ export default function EnquiryModal({
         }
 
         return score;
-    }, [form.category, form.city, vendorSearch]);
+    }, [form, vendorSearch]);
 
     const filteredVendors = useMemo(() => {
-        let filtered = [...dummyVendors];
+        let filtered = [...vendors];
 
         if (form.category) {
             filtered = filtered.filter((v) => v.category.includes(form.category));
@@ -188,7 +216,7 @@ export default function EnquiryModal({
         filtered.sort((a, b) => getVendorScore(b) - getVendorScore(a));
 
         return filtered;
-    }, [form.category, form.city, vendorSearch, getVendorScore]);
+    }, [form.category, form.city, vendorSearch, getVendorScore, vendors]);
 
     const validateForm = useCallback(() => {
         const newErrors = {};
@@ -244,15 +272,15 @@ export default function EnquiryModal({
     }, []);
 
     const handleSubmit = useCallback(async () => {
-        console.log('🟢 handleSubmit triggered with form:', form);
+
 
         // Step 0: Validate form
         if (!validateForm()) {
-            console.warn('⚠️ Form validation failed:', form);
+
             return;
         }
 
-        console.log('✅ Form validation passed');
+
 
         setIsSubmitting(true);
         setSubmitStatus(null);
@@ -262,39 +290,36 @@ export default function EnquiryModal({
 
             // Step 1: Save to database (Create or Update)
             if (initialData?.id) {
-                console.log('✏️ Updating existing enquiry with ID:', initialData.id);
+
                 savedEnquiry = await apiService.updateEnquiry(initialData.id, form);
-                console.log('✅ Enquiry updated successfully:', savedEnquiry);
+
                 setSubmitStatus({ type: 'success', message: 'Enquiry updated successfully!' });
             } else {
-                console.log('🆕 Creating new enquiry...');
+
                 savedEnquiry = await apiService.saveEnquiry(form);
-                console.log('✅ Enquiry created successfully:', savedEnquiry);
+
                 setSubmitStatus({ type: 'success', message: 'Enquiry created successfully!' });
             }
 
             // Step 2: Send Telegram notifications (if vendors assigned)
             if (form.assignedVendors.length > 0) {
-                console.log(
-                    `📨 Sending Telegram notifications to ${form.assignedVendors.length} vendor(s):`,
-                    form.assignedVendors
-                );
+
 
                 await apiService.sendTelegramNotifications(savedEnquiry, form.assignedVendors);
 
-                console.log('✅ Telegram notifications sent successfully');
+
                 setSubmitStatus({
                     type: 'success',
                     message: `Enquiry saved and notifications sent to ${form.assignedVendors.length} vendor(s)!`
                 });
             } else {
-                console.log('ℹ️ No vendors assigned — skipping Telegram notification');
+
             }
 
             // Step 3: Post-success actions
-            console.log('⏳ Waiting before closing modal...');
+
             setTimeout(() => {
-                console.log('🔚 Closing modal and calling onSave()...');
+
                 onSave(savedEnquiry);
                 onClose();
             }, 1500);
@@ -306,7 +331,7 @@ export default function EnquiryModal({
                 message: error.message || 'Failed to save enquiry. Please try again.'
             });
         } finally {
-            console.log('🧹 handleSubmit cleanup — setting isSubmitting to false');
+
             setIsSubmitting(false);
         }
     }, [form, validateForm, initialData, onSave, onClose]);
@@ -321,9 +346,9 @@ export default function EnquiryModal({
 
     const selectedVendorDetails = useMemo(() => {
         return form.assignedVendors
-            .map((id) => dummyVendors.find((v) => v.id === id))
+            .map((id) => vendors.find((v) => v.id === id))
             .filter(Boolean);
-    }, [form.assignedVendors]);
+    }, [form.assignedVendors, vendors]);
 
     if (!show) return null;
 

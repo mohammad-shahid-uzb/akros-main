@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import VendorModal from "./VendorModal";
 import EnquiryModal from "./EnquiryModal";
 
@@ -10,8 +10,8 @@ export default function AdminDashboard() {
         "STEEL WORK", "STONE WORK", "WATER PROOFING", "WOOD WORK", "ELECTRICAL", "PAINTING", "PLUMBING"
     ];
 
-    const [vendorsOpen, setVendorsOpen] = useState(true);
-    const [enquiriesOpen, setEnquiriesOpen] = useState(true);
+    const [vendorsOpen, setVendorsOpen] = useState(false);
+    const [enquiriesOpen, setEnquiriesOpen] = useState(false);
     const [vendors, setVendors] = useState([]);
     const [enquiries, setEnquiries] = useState([]);
     const [showVendorModal, setShowVendorModal] = useState(false);
@@ -21,20 +21,74 @@ export default function AdminDashboard() {
     const [vendorSearch, setVendorSearch] = useState("");
     const [vendorFilterStatus, setVendorFilterStatus] = useState("all"); // pending, approved
 
-    useEffect(() => {
-        // Dummy vendors
-        setVendors([
-            { id: 1, name: "Akros Supplier", category: ["CONCRETE WORK", "EARTHWORK"], email: "a@supplier.com", phone: "+998901234567", city: "Tashkent", status: "approved" },
-            { id: 2, name: "Best Materials", category: ["BRICK WORK", "FINISHING"], email: "b@supplier.com", phone: "+998901234568", city: "Tashkent", status: "pending" },
-            { id: 3, name: "QuickBuild", category: ["CONCRETE WORK"], email: "q@build.com", phone: "+998901234569", city: "Tashkent", status: "pending" },
-        ]);
 
-        // Dummy enquiries
-        setEnquiries([
-            { id: 1, title: "Concrete for Building A", category: "CONCRETE WORK", description: "We need concrete grade C30 for Building A", deadline: "2025-10-20", assignedVendors: [1], status: "Open" },
-            { id: 2, title: "Bricks for Wall B", category: "BRICK WORK", description: "Bricks for Wall B with standard size", deadline: "2025-10-25", assignedVendors: [2], status: "Open" },
-        ]);
+
+    useEffect(() => {
+        fetchSuppliers();
+        fetchEnquiries();
     }, []);
+
+    const fetchSuppliers = async () => {
+        try {
+            const res = await fetch("http://localhost:4000/api/suppliers");
+
+            const data = await res.json();
+
+            setVendors(
+                data.map((s) => ({
+                    _id: s._id || s.__id,
+                    __id: s.__id || s._id,
+                    name: s.name,
+                    category: s.certifications || [],
+                    email: s.contact?.email || "",
+                    phone: s.contact?.phone || "",
+                    city: s.location?.city || "",
+                    country: s.location?.country || s.country || "",
+                    status: s.status || "pending",
+                }))
+            );
+        } catch (err) {
+            console.error("❌ Error fetching suppliers:", err);
+        }
+    };
+
+    const fetchEnquiries = async () => {
+        try {
+
+            const res = await fetch("http://localhost:4000/api/enquiries");
+
+
+            const result = await res.json();
+
+
+            // ✅ Extract correct array
+            const enquiriesArray = result?.data || [];
+
+            if (!Array.isArray(enquiriesArray)) {
+                console.error("❌ [ERROR] Expected 'data' to be an array but got:", typeof enquiriesArray);
+                return;
+            }
+
+
+
+            setEnquiries(
+                enquiriesArray.map((e) => ({
+                    _id: e._id || e.__id || e.id,
+                    title: e.title,
+                    category: e.category,
+                    city: e.city,
+                    description: e.description,
+                    deadline: e.deadline,
+                    assignedVendors: e.assignedVendors || [],
+                    status: e.status || "Open",
+                }))
+            );
+
+
+        } catch (err) {
+            console.error("❌ [ERROR] Fetching enquiries failed:", err);
+        }
+    };
 
     // Filtered vendors for search & status
     const filteredVendors = vendors.filter((v) => {
@@ -43,53 +97,160 @@ export default function AdminDashboard() {
         return matchesStatus && matchesSearch;
     });
 
-    // Vendor Handlers
-    const handleSaveVendor = (data) => {
-        if (editingVendor) {
-            setVendors((prev) =>
-                prev.map((v) => (v.id === editingVendor.id ? { ...v, ...data } : v))
-            );
-        } else {
-            const newVendor = { id: Date.now(), status: "pending", ...data };
-            setVendors((prev) => [...prev, newVendor]);
+    const handleSaveVendor = async (data) => {
+        try {
+            const _id = data._id || data.__id;
+
+            // ✅ Build FormData
+            const formData = new FormData();
+            formData.append("name", data.name);
+            formData.append("contact[email]", data.contact.email);
+            formData.append("contact[phone]", data.contact.phone);
+            formData.append("location[city]", data.location.city);
+            formData.append("location[country]", data.location.country);
+            data.category.forEach((cat) => formData.append("category", cat));
+
+            // ✅ Add certifications (if any)
+            if (data.certifications && Array.isArray(data.certifications)) {
+                data.certifications.forEach((file) => {
+                    formData.append("certifications", file);
+                });
+            }
+
+            // ✅ Send FormData request (do NOT set Content-Type)
+            const url = _id
+                ? `http://localhost:4000/api/suppliers/${_id}`
+                : "http://localhost:4000/api/suppliers";
+
+            const method = _id ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
+                body: formData, // <-- no JSON.stringify
+            });
+
+            if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+
+            await fetchSuppliers();
+            setShowVendorModal(false);
+            setEditingVendor(null);
+        } catch (err) {
+            console.error("❌ Error saving supplier:", err);
         }
-        setShowVendorModal(false);
-        setEditingVendor(null);
+    };
+
+
+
+
+    const handleApproveVendor = async (_id) => {
+
+
+        try {
+            // Step 1: Build request data
+            const payload = { status: "approved" };
+
+
+            // Step 2: Make PUT request
+            const response = await fetch(`http://localhost:4000/api/suppliers/${_id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+
+
+            // Step 3: Parse response
+            const data = await response.json();
+
+
+            if (!response.ok) {
+                throw new Error(`Failed to approve vendor: ${data.error || response.statusText}`);
+            }
+
+            // Step 4: Refresh suppliers list
+
+            await fetchSuppliers();
+
+
+        } catch (err) {
+            console.error("❌ [ERROR] Approving vendor failed:", err);
+        }
+
+
     };
 
     const handleEditVendor = (vendor) => {
-        setEditingVendor(vendor);
+        // Convert MongoDB __id to _id for consistency
+        setEditingVendor({ ...vendor, _id: vendor.__id });
         setShowVendorModal(true);
-    };
-
-    const handleApproveVendor = (id) => {
-        setVendors((prev) =>
-            prev.map((v) => (v.id === id ? { ...v, status: "approved" } : v))
-        );
     };
 
     // Enquiry Handlers
     const handleSaveEnquiry = (data) => {
+
+
         if (editingEnquiry) {
-            setEnquiries((prev) =>
-                prev.map((e) => (e.id === editingEnquiry.id ? { ...e, ...data } : e))
-            );
+            // console.log("🔁 [MODE] Update existing enquiry");
+
+            setEnquiries((prev) => {
+                const updated = prev.map((e) =>
+                    e._id === editingEnquiry._id ? { ...e, ...data } : e
+                );
+                return updated;
+            });
         } else {
-            const newEnquiry = { id: Date.now(), ...data };
-            setEnquiries((prev) => [...prev, newEnquiry]);
+
+            const newEnquiry = { _id: Date.now(), ...data };
+
+            setEnquiries((prev) => {
+                const updated = [...prev, newEnquiry];
+                return updated;
+            });
         }
+
         setShowEnquiryModal(false);
         setEditingEnquiry(null);
+
+
     };
+
 
     const handleEditEnquiry = (enquiry) => {
         setEditingEnquiry(enquiry);
         setShowEnquiryModal(true);
     };
 
+    const handleDeleteVendor = async (vendor_id) => {
+
+
+        if (!vendor_id) return alert("❌ Vendor _id missing");
+
+        if (window.confirm(`Are you sure you want to delete this vendor?`)) {
+
+            try {
+                const res = await fetch(`http://localhost:4000/api/suppliers/${vendor_id}`, {
+                    method: "DELETE",
+                });
+
+                if (!res.ok) throw new Error("Failed to delete vendor");
+
+                alert("✅ Vendor deleted successfully!");
+                await fetchSuppliers();
+                setShowVendorModal(false);
+                setEditingVendor(null);
+            } catch (err) {
+                console.error("❌ Error deleting vendor:", err);
+                alert("Failed to delete vendor.");
+            }
+        }
+    };
+
+
+
+
     return (
         <div className="min-h-screen flex bg-gray-50">
-            {/* Sidebar */}
+            {/* S_idebar */}
             <aside className="w-64 bg-gray-800 text-white flex flex-col p-6">
                 <h1 className="text-2xl font-bold mb-6">Admin Panel</h1>
                 <nav className="space-y-3">
@@ -133,22 +294,42 @@ export default function AdminDashboard() {
                             </div>
 
                             <ul className="space-y-2 max-h-96 overflow-y-auto">
-                                {filteredVendors.map((v) => (
-                                    <li key={v.id} className="flex justify-between p-3 border rounded hover:bg-gray-50 transition">
-                                        <div>
-                                            <p className="font-medium">{v.name}</p>
-                                            <p className="text-sm text-gray-500">{v.category.join(", ")}</p>
-                                            <p className="text-sm text-gray-500">{v.email} | {v.phone} | {v.city}</p>
-                                            <p className="text-sm text-gray-500">Status: {v.status}</p>
-                                        </div>
-                                        <div className="flex space-x-2">
-                                            {v.status === "pending" && (
-                                                <button onClick={() => handleApproveVendor(v.id)} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">Approve</button>
-                                            )}
-                                            <button onClick={() => handleEditVendor(v)} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Edit</button>
-                                        </div>
-                                    </li>
-                                ))}
+                                {filteredVendors.map((v) => {
+                                    return (
+                                        <li
+                                            key={v._id} // fixed from __id to _id
+                                            className="flex justify-between p-3 border rounded hover:bg-gray-50 transition"
+                                        >
+                                            <div>
+                                                <p className="font-medium">{v.name}</p>
+                                                <p className="text-sm text-gray-500">
+                                                    {Array.isArray(v.category) ? v.category.join(", ") : v.category}
+                                                </p>
+                                                <p className="text-sm text-gray-500">
+                                                    {v.email} | {v.phone} | {v.city}
+                                                </p>
+                                                <p className="text-sm text-gray-500">Status: {v.status}</p>
+                                            </div>
+                                            <div className="flex space-x-2">
+                                                {v.status === "pending" && (
+                                                    <button
+                                                        onClick={() => handleApproveVendor(v._id)}
+                                                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                                                    >
+                                                        Approve
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleEditVendor(v)}
+                                                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                >
+                                                    Edit
+                                                </button>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+
                                 {filteredVendors.length === 0 && <p className="text-gray-500">No vendors found.</p>}
                             </ul>
                         </>
@@ -164,20 +345,50 @@ export default function AdminDashboard() {
 
                     {enquiriesOpen && (
                         <ul className="space-y-3 max-h-96 overflow-y-auto">
-                            {enquiries.map((e) => (
-                                <li key={e.id} className="p-4 border rounded bg-gray-50 hover:bg-white transition shadow-sm">
+                            {enquiries.map((e, idx) => (
+                                <li
+                                    key={e._id || `enquiry-${idx}`}
+                                    className="p-4 border rounded bg-gray-50 hover:bg-white transition shadow-sm"
+                                >
                                     <div className="flex justify-between items-center mb-2">
                                         <h3 className="font-semibold text-gray-800">{e.title}</h3>
-                                        <button onClick={() => handleEditEnquiry(e)} className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600">Edit</button>
+                                        <button
+                                            onClick={() => handleEditEnquiry(e)}
+                                            className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                                        >
+                                            Edit
+                                        </button>
                                     </div>
-                                    <p className="text-sm text-gray-600 mb-1"><strong>Category:</strong> {e.category}</p>
-                                    <p className="text-sm text-gray-600 mb-1"><strong>Description:</strong> {e.description}</p>
-                                    <p className="text-sm text-gray-600 mb-1"><strong>Deadline:</strong> {e.deadline}</p>
-                                    <p className="text-sm text-gray-600"><strong>Assigned Vendors:</strong> {vendors.filter(v => e.assignedVendors.includes(v.id)).map(v => v.name).join(", ")}</p>
+
+                                    <p className="text-sm text-gray-600 mb-1">
+                                        <strong>Category:</strong> {e.category}
+                                    </p>
+                                    <p className="text-sm text-gray-600 mb-1">
+                                        <strong>Description:</strong> {e.description}
+                                    </p>
+                                    <p className="text-sm text-gray-600 mb-1">
+                                        <strong>Deadline:</strong> {e.deadline}
+                                    </p>
+
+                                    <p className="text-sm text-gray-600">
+                                        <strong>Assigned Vendors:</strong>{" "}
+                                        {Array.isArray(e.assignedVendors) && e.assignedVendors.length > 0 ? (
+                                            e.assignedVendors.map((v, i) => (
+                                                <span key={v._id || v.__id || `${e._id || idx}-vendor-${i}`}>
+                                                    {v.name}
+                                                    {v.location?.city ? ` (${v.location.city})` : ""}
+                                                    {i < e.assignedVendors.length - 1 ? ", " : ""}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span className="text-gray-400">No vendors assigned</span>
+                                        )}
+                                    </p>
                                 </li>
                             ))}
                         </ul>
                     )}
+
                 </section>
             </main>
 
@@ -187,6 +398,7 @@ export default function AdminDashboard() {
                 onClose={() => { setShowVendorModal(false); setEditingVendor(null); }}
                 onSave={handleSaveVendor}
                 initialData={editingVendor}
+                onDelete={handleDeleteVendor}
                 categories={categories}
             />
 

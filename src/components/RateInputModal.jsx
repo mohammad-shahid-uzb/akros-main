@@ -60,7 +60,6 @@ const RateInputModal = ({ show, onClose, onSave, initialData }) => {
         }
 
         // Basic format validation - allow up to 10 characters with letters, numbers, dots, hyphens
-        console.log('Validating itemNo:', itemNoToCheck, 'Length:', itemNoToCheck.length, 'Pattern test:', itemNoPattern.test(itemNoToCheck));
         if (!itemNoPattern.test(itemNoToCheck)) {
             setIsUnique(false);
             setErrorMsg("Max 10 characters, only letters, numbers, dots, hyphens");
@@ -79,9 +78,7 @@ const RateInputModal = ({ show, onClose, onSave, initialData }) => {
         setIsChecking(true);
         setIsCheckingItemNo(true);
         try {
-            console.log(`Checking uniqueness for URL: ${API_BASE_URL}/rates/check-itemno/${itemNoToCheck}`);
             const { data } = await axios.get(`${API_BASE_URL}/rates/check-itemno/${itemNoToCheck}`);
-            console.log('Backend response:', data);
 
             if (data && data.isUnique === false) {
                 setIsUnique(false);
@@ -146,7 +143,6 @@ const RateInputModal = ({ show, onClose, onSave, initialData }) => {
             alert("Item Number is not unique. Please choose a different one.");
             return;
         }
-        console.log('Saving form data:', form);
         onSave({
             ...(initialData && { _id: initialData._id }),
             ...form,

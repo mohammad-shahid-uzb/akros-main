@@ -29,7 +29,6 @@ const RateInputPage = () => {
         setLoading(true);
         setError(null);
         try {
-            console.log("Backend fetch parameters:", { search: searchQuery, page: currentPage, size: itemsPerPage, category: filterTab });
             const res = await axios.get(`${API_BASE_URL}/rates`, {
                 params: {
                     search: searchQuery,
@@ -39,7 +38,6 @@ const RateInputPage = () => {
                 },
             });
 
-            console.log("Backend response data:", res.data);
             setData(Array.isArray(res.data.data) ? res.data.data : []); // Strictly ensure data is an array
             setTotalPages(typeof res.data.pages === 'number' ? res.data.pages : 1); // Strictly ensure totalPages is a number
         } catch (err) {
@@ -103,7 +101,6 @@ const RateInputPage = () => {
     }, []);
 
     useEffect(() => {
-        console.log("useEffect triggered in RateInputPage");
         fetchRates(searchQuery, currentPage, itemsPerPage, selectedFilterTab);
     }, [fetchRates, searchQuery, currentPage, itemsPerPage, selectedFilterTab]);
 
@@ -127,8 +124,7 @@ const RateInputPage = () => {
         if (window.confirm("Are you sure you want to delete this item?")) {
             try {
                 const deleteUrl = `${API_BASE_URL}/rates/${id}`;
-                const response = await axios.delete(deleteUrl);
-                console.log("Delete response:", response);
+                await axios.delete(deleteUrl);
                 await fetchRates(searchQuery, currentPage, itemsPerPage, selectedFilterTab);
             } catch (err) {
                 console.error("Delete failed:", err);
