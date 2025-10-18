@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../config/api";
 
 export default function VendorModal({
     show,
@@ -18,8 +19,13 @@ export default function VendorModal({
         certifications: [], // 🧩 new for file upload
     });
 
+    // Normalized for display: { href: string, label: string, raw: string|object }
+    const [existingCertifications, setExistingCertifications] = useState([]);
+
     useEffect(() => {
         if (initialData) {
+            console.log("[VendorModal] initialData received", initialData);
+            console.log("[VendorModal] initialData.certifications (raw)", initialData.certifications);
             setForm({
                 name: initialData.name || "",
                 email: initialData.contact?.email || initialData.email || "",
@@ -29,6 +35,28 @@ export default function VendorModal({
                 category: initialData.category || [],
                 certifications: [], // don't prefill files
             });
+            // Normalize certifications for display
+            const rawCerts = Array.isArray(initialData.certifications) ? initialData.certifications : [];
+            const normalized = rawCerts.map((c, idx) => {
+                if (typeof c === "string") {
+                    const isAbsolute = /^https?:\/\//i.test(c);
+                    const href = isAbsolute ? c : `${API_BASE_URL}${c.startsWith('/') ? '' : '/'}${c}`;
+                    const label = c.split('/').pop() || `Document-${idx + 1}`;
+                    return { href, label, raw: c };
+                }
+                if (c && typeof c === "object") {
+                    const hrefCandidate = c.url || c.path || c.fileUrl || c.filepath || c.location || c.href;
+                    const isAbsolute = hrefCandidate ? /^https?:\/\//i.test(hrefCandidate) : false;
+                    const href = hrefCandidate
+                        ? (isAbsolute ? hrefCandidate : `${API_BASE_URL}${hrefCandidate.startsWith('/') ? '' : '/'}${hrefCandidate}`)
+                        : undefined;
+                    const label = c.filename || c.originalname || c.name || (hrefCandidate ? hrefCandidate.split('/').pop() : `Document-${idx + 1}`);
+                    return href ? { href, label, raw: c } : null;
+                }
+                return null;
+            }).filter(Boolean);
+            console.log("[VendorModal] normalized existingCertifications", normalized);
+            setExistingCertifications(normalized);
         } else {
             setForm({
                 name: "",
@@ -39,6 +67,7 @@ export default function VendorModal({
                 category: [],
                 certifications: [],
             });
+            setExistingCertifications([]);
         }
     }, [initialData]);
 
@@ -78,6 +107,7 @@ export default function VendorModal({
                 country: form.country,
                 categoriesCount: form.category.length,
                 filesCount: form.certifications.length,
+                existingCertificationsCount: existingCertifications.length,
             },
         });
 
@@ -91,6 +121,14 @@ export default function VendorModal({
         form.certifications.forEach((file) =>
             formData.append("certifications", file)
         );
+        // Include existing certifications so backend can retain them
+        // Send as JSON array of hrefs (server should merge them)
+        try {
+            const rawList = existingCertifications.map((c) => (c.raw !== undefined ? c.raw : c.href));
+            formData.append("existingCertifications", JSON.stringify(rawList));
+        } catch (e) {
+            console.warn("[VendorModal] failed to serialize existingCertifications", e);
+        }
 
         console.log("[VendorModal] Prepared FormData", {
             keys: Array.from(formData.keys()),
@@ -226,6 +264,54 @@ export default function VendorModal({
                             onChange={handleChange}
                             className="w-full border rounded px-3 py-2"
                         />
+                        {existingCertifications.length > 0 && (
+                            <div className="mt-2 space-y-2">
+                                {console.log("[VendorModal] rendering existingCertifications", existingCertifications)}
+                                <p className="text-sm text-gray-600">Existing Certifications</p>
+                                <ul className="space-y-1">
+                                    {existingCertifications.map((c, idx) => {
+                                        const href = c.href;
+                                        const label = c.label;
+                                        return (
+                                            <li key={`${href}-${idx}`} className="flex items-center justify-between text-sm">
+                                                <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-[75%]">{label}</a>
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        try {
+                                                            // Optimistic UI update
+                                                            setExistingCertifications((prev) => prev.filter((x, i) => !(i === idx && x.href === href)));
+                                                            // Inform backend to remove this certification
+                                                            const supplierId = initialData?._id || initialData?.__id;
+                                                            if (!supplierId) return;
+                                                            const payload = { removeCertification: c.raw ?? href };
+                                                            console.log('[VendorModal] Removing certification', payload);
+                                                            const res = await fetch(`http://localhost:4000/api/suppliers/${supplierId}/certifications`, {
+                                                                method: 'DELETE',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify(payload),
+                                                            });
+                                                            const json = await res.json().catch(() => ({}));
+                                                            if (!res.ok) {
+                                                                console.error('[VendorModal] Failed to remove certification', json);
+                                                                alert(json.error || 'Failed to remove certification');
+                                                            }
+                                                        } catch (e) {
+                                                            console.error('[VendorModal] Error removing certification', e);
+                                                            alert('Error removing certification');
+                                                        }
+                                                    }}
+                                                    className="ml-2 px-2 py-0.5 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                                <p className="text-xs text-gray-400">Removed items will not be retained unless re-uploaded.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

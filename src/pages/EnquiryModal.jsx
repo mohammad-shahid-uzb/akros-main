@@ -39,6 +39,7 @@ const apiService = {
     // Update existing enquiry
     async updateEnquiry(enquiryId, enquiryData) {
         try {
+            console.log('[EnquiryModal] updateEnquiry — request', { enquiryId, enquiryData });
             const response = await fetch(`${API_BASE}/api/enquiries/${enquiryId}`, {
                 method: 'PUT',
                 headers: {
@@ -47,11 +48,21 @@ const apiService = {
                 body: JSON.stringify(enquiryData),
             });
 
+            console.log('[EnquiryModal] updateEnquiry — status', response.status);
+            let json;
+            try {
+                json = await response.json();
+            } catch (e) {
+                console.warn('[EnquiryModal] updateEnquiry — failed to parse JSON');
+                json = null;
+            }
+            console.log('[EnquiryModal] updateEnquiry — response JSON', json);
+
             if (!response.ok) {
-                throw new Error('Failed to update enquiry');
+                throw new Error(json?.error || 'Failed to update enquiry');
             }
 
-            return await response.json();
+            return json;
         } catch (error) {
             console.error('Error updating enquiry:', error);
             throw error;
@@ -90,6 +101,7 @@ export default function EnquiryModal({
     onClose,
     onSave,
     initialData,
+    vendors: vendorsFromParent = [],
     categories = DEFAULT_CATEGORIES
 }) {
 
@@ -109,61 +121,65 @@ export default function EnquiryModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState(null);
 
-    // ✅ Fetch vendors when modal opens
+    // ✅ Normalize any vendor shape (from backend or parent)
+    const normalizeVendors = (list) => {
+        if (!Array.isArray(list)) return [];
+        return list.map((v) => ({
+            id: v._id || v.__id || v.id,
+            name: v.name,
+            category: Array.isArray(v.category) ? v.category : [],
+            city: v.location?.city || v.city || "",
+            email: v.contact?.email || v.email || "",
+            phone: v.contact?.phone || v.phone || "",
+            telegramChatId: v.telegramChatId || "",
+            status: v.status || "pending",
+        })).filter((v) => v.id && v.name);
+    };
+
+    // ✅ Fetch vendors when modal opens, or use parent list as fallback
     useEffect(() => {
-        if (show) {
-            // Reset form
-            if (initialData) {
-                setForm(initialData);
-            } else {
-                setForm({
-                    title: "",
-                    category: "",
-                    city: "",
-                    description: "",
-                    deadline: "",
-                    assignedVendors: [],
-                    status: "Open",
-                });
-            }
+        if (!show) return;
 
-            setErrors({});
-            setVendorSearch("");
-            setSubmitStatus(null);
+        // Reset form
+        if (initialData) {
+            setForm(initialData);
+        } else {
+            setForm({
+                title: "",
+                category: "",
+                city: "",
+                description: "",
+                deadline: "",
+                assignedVendors: [],
+                status: "Open",
+            });
+        }
 
-            // ✅ Fetch from backend
-            (async () => {
+        setErrors({});
+        setVendorSearch("");
+        setSubmitStatus(null);
 
-                try {
-                    const response = await fetch(`${API_BASE}/api/suppliers`);
-                    if (!response.ok) throw new Error("Failed to fetch vendors");
+        // Use parent-provided vendors immediately if available
+        const parentNormalized = normalizeVendors(vendorsFromParent);
+        if (parentNormalized.length > 0) {
+            setVendors(parentNormalized);
+        }
 
-
-                    const data = await response.json();
-
-
-                    // ✅ Normalize vendor data
-                    const normalized = data.map((v) => ({
-                        id: v._id,
-                        name: v.name,
-                        category: v.category || [],
-                        city: v.location?.city || "",
-                        email: v.contact?.email || "",
-                        phone: v.contact?.phone || "",
-                        telegramChatId: v.telegramChatId || "",
-                        status: v.status || "pending",
-                    }));
-
-
-                    setVendors(normalized);
-                } catch (err) {
-                    console.error("❌ [ERROR] Fetching vendors failed:", err);
+        // Fetch latest from backend regardless (will overwrite if successful)
+        (async () => {
+            try {
+                const response = await fetch(`${API_BASE}/api/suppliers`);
+                if (!response.ok) throw new Error("Failed to fetch vendors");
+                const data = await response.json();
+                const normalized = normalizeVendors(data);
+                setVendors(normalized);
+            } catch (err) {
+                if (parentNormalized.length === 0) {
                     setVendors([]);
                 }
-            })();
-        }
-    }, [show, initialData]);
-
+            }
+        })();
+    }, [show, initialData, vendorsFromParent]);
 
     const cities = useMemo(() => {
         return Array.from(new Set(vendors.map((v) => v.city))).sort();
@@ -195,16 +211,15 @@ export default function EnquiryModal({
     }, [form, vendorSearch]);
 
     const filteredVendors = useMemo(() => {
+        // Start with all vendors
         let filtered = [...vendors];
 
+        // If a category is chosen, filter by category membership
         if (form.category) {
-            filtered = filtered.filter((v) => v.category.includes(form.category));
+            filtered = filtered.filter((v) => Array.isArray(v.category) && v.category.includes(form.category));
         }
 
-        if (form.city) {
-            filtered = filtered.filter((v) => v.city === form.city);
-        }
-
+        // Apply text search
         if (vendorSearch) {
             const searchLower = vendorSearch.toLowerCase();
             filtered = filtered.filter((v) =>
@@ -213,10 +228,10 @@ export default function EnquiryModal({
             );
         }
 
+        // Sort by score for relevance
         filtered.sort((a, b) => getVendorScore(b) - getVendorScore(a));
-
         return filtered;
-    }, [form.category, form.city, vendorSearch, getVendorScore, vendors]);
+    }, [form.category, vendorSearch, getVendorScore, vendors]);
 
     const validateForm = useCallback(() => {
         const newErrors = {};
@@ -289,9 +304,11 @@ export default function EnquiryModal({
             let savedEnquiry;
 
             // Step 1: Save to database (Create or Update)
-            if (initialData?.id) {
+            const enquiryId = initialData?._id || initialData?.id;
 
-                savedEnquiry = await apiService.updateEnquiry(initialData.id, form);
+            if (enquiryId) {
+
+                savedEnquiry = await apiService.updateEnquiry(enquiryId, form);
 
                 setSubmitStatus({ type: 'success', message: 'Enquiry updated successfully!' });
             } else {
@@ -346,7 +363,10 @@ export default function EnquiryModal({
 
     const selectedVendorDetails = useMemo(() => {
         return form.assignedVendors
-            .map((id) => vendors.find((v) => v.id === id))
+            .map((entry) => {
+                const vendorId = typeof entry === 'string' ? entry : (entry?._id || entry?.__id || entry?.id);
+                return vendors.find((v) => v.id === vendorId);
+            })
             .filter(Boolean);
     }, [form.assignedVendors, vendors]);
 

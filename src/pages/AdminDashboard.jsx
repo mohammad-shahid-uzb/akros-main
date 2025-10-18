@@ -9,7 +9,6 @@ export default function AdminDashboard() {
         "MORTARS", "Material", "Misc", "PILE WORK", "RCC", "REPAIRS", "ROAD WORK", "ROOFING", "SANITARY",
         "STEEL WORK", "STONE WORK", "WATER PROOFING", "WOOD WORK", "ELECTRICAL", "PAINTING", "PLUMBING"
     ];
-
     const [vendorsOpen, setVendorsOpen] = useState(false);
     const [enquiriesOpen, setEnquiriesOpen] = useState(false);
     const [vendors, setVendors] = useState([]);
@@ -19,39 +18,58 @@ export default function AdminDashboard() {
     const [showEnquiryModal, setShowEnquiryModal] = useState(false);
     const [editingEnquiry, setEditingEnquiry] = useState(null);
     const [vendorSearch, setVendorSearch] = useState("");
-    const [vendorFilterStatus, setVendorFilterStatus] = useState("all"); // pending, approved
-
-
+    const [vendorFilterStatus, setVendorFilterStatus] = useState("all");
 
     useEffect(() => {
         fetchSuppliers();
         fetchEnquiries();
     }, []);
-
     const fetchSuppliers = async () => {
         try {
             const res = await fetch("http://localhost:4000/api/suppliers");
-
             const data = await res.json();
-
+            //console.log("data", data);
             setVendors(
-                data.map((s) => ({
-                    _id: s._id || s.__id,
-                    __id: s.__id || s._id,
-                    name: s.name,
-                    category: s.certifications || [],
-                    email: s.contact?.email || "",
-                    phone: s.contact?.phone || "",
-                    city: s.location?.city || "",
-                    country: s.location?.country || s.country || "",
-                    status: s.status || "pending",
-                }))
+                data.map((s) => {
+                    // Normalize category (convert objects or mixed arrays to strings)
+                    const category = Array.isArray(s.category)
+                        ? s.category.map((c) =>
+                            typeof c === "string"
+                                ? c
+                                : c.name || c.category || JSON.stringify(c)
+                        )
+                        : [];
+
+                    // Normalize certifications
+                    const certifications = Array.isArray(s.certifications)
+                        ? s.certifications.map((c) => ({
+                            fileName: c.fileName || "",
+                            fileType: c.fileType || "",
+                            fileUrl: c.fileUrl || "",
+                            uploadedAt: c.uploadedAt || "",
+                        }))
+                        : [];
+
+                    return {
+                        _id: s._id || s.__id,
+                        __id: s.__id || s._id,
+                        name: s.name,
+                        category,
+                        email: s.contact?.email || "",
+                        phone: s.contact?.phone || "",
+                        city: s.location?.city || "",
+                        country: s.location?.country || s.country || "",
+                        status: s.status || "pending",
+                        certifications, // ✅ now included
+                        activityLog: Array.isArray(s.activityLog) ? s.activityLog : [],
+                        credibilityScore: s.credibilityScore || 0,
+                    };
+                })
             );
         } catch (err) {
-            console.error("❌ Error fetching suppliers:", err);
+            console.error("Error fetching suppliers:", err);
         }
     };
-
     const fetchEnquiries = async () => {
         try {
 
@@ -89,14 +107,11 @@ export default function AdminDashboard() {
             console.error("❌ [ERROR] Fetching enquiries failed:", err);
         }
     };
-
-    // Filtered vendors for search & status
     const filteredVendors = vendors.filter((v) => {
         const matchesStatus = vendorFilterStatus === "all" || v.status === vendorFilterStatus;
         const matchesSearch = v.name.toLowerCase().includes(vendorSearch.toLowerCase());
         return matchesStatus && matchesSearch;
     });
-
     const handleSaveVendor = async (data) => {
         try {
             const _id = data._id || data.__id;
@@ -138,17 +153,11 @@ export default function AdminDashboard() {
             console.error("❌ Error saving supplier:", err);
         }
     };
-
-
-
-
     const handleApproveVendor = async (_id) => {
-
 
         try {
             // Step 1: Build request data
             const payload = { status: "approved" };
-
 
             // Step 2: Make PUT request
             const response = await fetch(`http://localhost:4000/api/suppliers/${_id}`, {
@@ -156,8 +165,6 @@ export default function AdminDashboard() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-
-
 
             // Step 3: Parse response
             const data = await response.json();
@@ -171,55 +178,27 @@ export default function AdminDashboard() {
 
             await fetchSuppliers();
 
-
         } catch (err) {
             console.error("❌ [ERROR] Approving vendor failed:", err);
         }
 
 
     };
-
     const handleEditVendor = (vendor) => {
         // Convert MongoDB __id to _id for consistency
         setEditingVendor({ ...vendor, _id: vendor.__id });
         setShowVendorModal(true);
     };
-
-    // Enquiry Handlers
-    const handleSaveEnquiry = (data) => {
-
-
-        if (editingEnquiry) {
-            // console.log("🔁 [MODE] Update existing enquiry");
-
-            setEnquiries((prev) => {
-                const updated = prev.map((e) =>
-                    e._id === editingEnquiry._id ? { ...e, ...data } : e
-                );
-                return updated;
-            });
-        } else {
-
-            const newEnquiry = { _id: Date.now(), ...data };
-
-            setEnquiries((prev) => {
-                const updated = [...prev, newEnquiry];
-                return updated;
-            });
-        }
-
+    const handleSaveEnquiry = async () => {
+        // After create/update inside EnquiryModal, refresh from backend to reflect latest state
+        await fetchEnquiries();
         setShowEnquiryModal(false);
         setEditingEnquiry(null);
-
-
     };
-
-
     const handleEditEnquiry = (enquiry) => {
         setEditingEnquiry(enquiry);
         setShowEnquiryModal(true);
     };
-
     const handleDeleteVendor = async (vendor_id) => {
 
 
@@ -244,10 +223,6 @@ export default function AdminDashboard() {
             }
         }
     };
-
-
-
-
     return (
         <div className="min-h-screen flex bg-gray-50">
             {/* S_idebar */}
@@ -261,31 +236,38 @@ export default function AdminDashboard() {
                     <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-700">Settings</button>
                 </nav>
             </aside>
-
             {/* Main Content */}
             <main className="flex-1 p-6 space-y-8">
-
                 {/* Vendors Section */}
-                <section className="bg-white rounded-xl p-6 shadow">
-                    <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => setVendorsOpen(!vendorsOpen)}>
-                        <h2 className="text-xl font-semibold">Vendors Pending Approval</h2>
-                        <span className="text-gray-500">{vendorsOpen ? "▼" : "►"}</span>
+                <section className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+                    {/* Header */}
+                    <div
+                        className="flex justify-between items-center mb-5 cursor-pointer select-none"
+                        onClick={() => setVendorsOpen(!vendorsOpen)}
+                    >
+                        <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+                            <span className="text-blue-600">📋</span> Vendors Pending Approval
+                        </h2>
+                        <span className="text-gray-500 text-lg transition-transform">
+                            {vendorsOpen ? "▼" : "►"}
+                        </span>
                     </div>
 
                     {vendorsOpen && (
                         <>
-                            <div className="flex justify-between items-center mb-4">
+                            {/* Search + Filter */}
+                            <div className="flex flex-wrap justify-between items-center mb-5 gap-3">
                                 <input
                                     type="text"
-                                    placeholder="Search vendor..."
+                                    placeholder="🔍 Search vendor..."
                                     value={vendorSearch}
                                     onChange={(e) => setVendorSearch(e.target.value)}
-                                    className="border rounded px-3 py-1"
+                                    className="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-1/2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                                 />
                                 <select
                                     value={vendorFilterStatus}
                                     onChange={(e) => setVendorFilterStatus(e.target.value)}
-                                    className="border rounded px-3 py-1"
+                                    className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                                 >
                                     <option value="all">All</option>
                                     <option value="pending">Pending</option>
@@ -293,35 +275,119 @@ export default function AdminDashboard() {
                                 </select>
                             </div>
 
-                            <ul className="space-y-2 max-h-96 overflow-y-auto">
+                            {/* Vendor List */}
+                            <ul className="space-y-3 max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400">
                                 {filteredVendors.map((v) => {
+                                    const score = v.credibilityScore || 0;
+
+                                    // Convert score (0–100) → 1–5 stars
+                                    const starCount = Math.max(1, Math.round(score / 20));
+
+                                    // Gradient color for bar (red → yellow → green)
+                                    const gradient = `linear-gradient(to right, #ef4444, #f59e0b, #22c55e ${score}%)`;
+
                                     return (
                                         <li
-                                            key={v._id} // fixed from __id to _id
-                                            className="flex justify-between p-3 border rounded hover:bg-gray-50 transition"
+                                            key={v._id}
+                                            className="flex justify-between items-start p-4 border border-gray-200 rounded-xl hover:shadow-md hover:bg-gray-50 transition-all"
                                         >
-                                            <div>
-                                                <p className="font-medium">{v.name}</p>
-                                                <p className="text-sm text-gray-500">
-                                                    {Array.isArray(v.category) ? v.category.join(", ") : v.category}
+                                            <div className="w-full pr-6">
+                                                {/* Vendor Name + Stars */}
+                                                <div className="flex items-center justify-between">
+                                                    <p className="font-medium text-lg text-gray-800">{v.name}</p>
+                                                    <div className="flex space-x-1 text-yellow-400 text-lg">
+                                                        {[...Array(5)].map((_, i) => (
+                                                            <span key={i}>
+                                                                {i < starCount ? "★" : "☆"}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Gradient Score Bar */}
+                                                <div className="mt-2 w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                                                    <div
+                                                        className="h-2 rounded-full transition-all duration-500"
+                                                        style={{
+                                                            width: `${Math.min(score, 100)}%`,
+                                                            backgroundImage: gradient,
+                                                        }}
+                                                    ></div>
+                                                </div>
+
+                                                {/* Vendor Info */}
+                                                <p className="text-sm text-gray-500 mt-2">
+                                                    {Array.isArray(v.category)
+                                                        ? v.category.join(", ")
+                                                        : v.category}
                                                 </p>
-                                                <p className="text-sm text-gray-500">
+                                                <p className="text-sm text-gray-600 mb-1">
                                                     {v.email} | {v.phone} | {v.city}
                                                 </p>
-                                                <p className="text-sm text-gray-500">Status: {v.status}</p>
+
+                                                {/* Certifications */}
+                                                {v.certifications && v.certifications.length > 0 ? (
+                                                    <div className="mt-2">
+                                                        <p className="text-sm font-semibold text-gray-700">
+                                                            Certifications:
+                                                        </p>
+                                                        <ul className="ml-4 list-disc text-sm text-blue-600">
+                                                            {v.certifications.map((c, i) => (
+                                                                <li key={i}>
+                                                                    <a
+                                                                        href={`http://localhost:4000${c.fileUrl}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="underline hover:text-blue-800"
+                                                                    >
+                                                                        {c.fileName || `Certification ${i + 1}`}
+                                                                    </a>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-gray-400 italic mt-1">
+                                                        No certifications uploaded
+                                                    </p>
+                                                )}
+
+                                                <p className="text-sm text-gray-500 mt-2">
+                                                    Activity Log:{" "}
+                                                    <span className="font-medium text-gray-700">
+                                                        {Array.isArray(v.activityLog)
+                                                            ? v.activityLog.length
+                                                            : 0}
+                                                    </span>
+                                                </p>
+                                                <p className="text-sm text-gray-500">
+                                                    Status:{" "}
+                                                    <span
+                                                        className={`font-semibold ${v.status === "approved"
+                                                            ? "text-green-600"
+                                                            : v.status === "pending"
+                                                                ? "text-yellow-600"
+                                                                : "text-gray-600"
+                                                            }`}
+                                                    >
+                                                        {v.status}
+                                                    </span>
+                                                </p>
                                             </div>
-                                            <div className="flex space-x-2">
+
+                                            {/* Action Buttons */}
+                                            <div className="flex flex-col space-y-2 ml-4">
                                                 {v.status === "pending" && (
                                                     <button
                                                         onClick={() => handleApproveVendor(v._id)}
-                                                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                                                        className="px-4 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700"
                                                     >
                                                         Approve
                                                     </button>
                                                 )}
                                                 <button
                                                     onClick={() => handleEditVendor(v)}
-                                                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                    className="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700"
                                                 >
                                                     Edit
                                                 </button>
@@ -330,12 +396,13 @@ export default function AdminDashboard() {
                                     );
                                 })}
 
-                                {filteredVendors.length === 0 && <p className="text-gray-500">No vendors found.</p>}
+                                {filteredVendors.length === 0 && (
+                                    <p className="text-center text-gray-500 py-5">No vendors found.</p>
+                                )}
                             </ul>
                         </>
                     )}
                 </section>
-
                 {/* Live Enquiries Section */}
                 <section className="bg-white rounded-xl p-6 shadow">
                     <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => setEnquiriesOpen(!enquiriesOpen)}>
@@ -391,7 +458,6 @@ export default function AdminDashboard() {
 
                 </section>
             </main>
-
             {/* Modals */}
             <VendorModal
                 show={showVendorModal}
@@ -401,7 +467,6 @@ export default function AdminDashboard() {
                 onDelete={handleDeleteVendor}
                 categories={categories}
             />
-
             <EnquiryModal
                 show={showEnquiryModal}
                 onClose={() => { setShowEnquiryModal(false); setEditingEnquiry(null); }}
