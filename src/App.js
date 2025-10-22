@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-
+import LoginPage from "./pages/LoginPage";
 // Existing pages
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -20,6 +20,8 @@ import SupplierRegistrationPage from "./pages/SupplierRegister";
 import SupplierPricePage from "./pages/SupplierEnterPrice";
 import AdminDashboard from "./pages/AdminDashboard";
 
+import ProtectedRoute from "./components/ProtectedRoute";
+
 function App() {
     return (
         <Router>
@@ -37,12 +39,12 @@ function App() {
                     <Route path="/input" element={<InputPage />} />
                     <Route path="/rateinput" element={<RateInputPage />} />
                     <Route path="/prices" element={<PricesPage />} />
-
+                    <Route path="/login" element={<LoginPage />} />
                     {/* New routes */}
                     <Route path="/materials" element={<MaterialsPage />} />
                     <Route path="/suppliers" element={<SupplierRegistrationPage />} />
                     <Route path="/supplier-prices" element={<SupplierPricePage />} />
-                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
                 </Routes>
             </div>
             <Footer />

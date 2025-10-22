@@ -16,6 +16,7 @@ const API_BASE = "http://localhost:4000";
 const apiService = {
     // Save enquiry to database
     async saveEnquiry(enquiryData) {
+        console.log('[EnquiryModal] saveEnquiry — request', { enquiryData });
         try {
             const response = await fetch(`${API_BASE}/api/enquiries`, {
                 method: 'POST',
@@ -288,13 +289,11 @@ export default function EnquiryModal({
 
     const handleSubmit = useCallback(async () => {
 
-
         // Step 0: Validate form
         if (!validateForm()) {
 
             return;
         }
-
 
 
         setIsSubmitting(true);

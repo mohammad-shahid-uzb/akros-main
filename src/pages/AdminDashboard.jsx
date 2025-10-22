@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import VendorModal from "./VendorModal";
 import EnquiryModal from "./EnquiryModal";
+import QuotesModal from "./QuotesModal";
 
 export default function AdminDashboard() {
     const categories = [
@@ -19,7 +20,10 @@ export default function AdminDashboard() {
     const [editingEnquiry, setEditingEnquiry] = useState(null);
     const [vendorSearch, setVendorSearch] = useState("");
     const [vendorFilterStatus, setVendorFilterStatus] = useState("all");
-
+    const [selectedEnquiryQuotes, setSelectedEnquiryQuotes] = useState([]);
+    console.log(selectedEnquiryQuotes);
+    const [showQuotesModal, setShowQuotesModal] = useState(false);
+    const [sendingId, setSendingId] = useState(null);
     useEffect(() => {
         fetchSuppliers();
         fetchEnquiries();
@@ -221,6 +225,67 @@ export default function AdminDashboard() {
                 console.error("❌ Error deleting vendor:", err);
                 alert("Failed to delete vendor.");
             }
+        }
+    };
+    const handleViewQuotes = async (enquiryId) => {
+        try {
+            const res = await fetch(`http://localhost:4000/api/quotes/enquiry/${enquiryId}`);
+            const result = await res.json();
+
+            if (!result.success) throw new Error(result.message || "Failed to fetch quotes");
+
+            setSelectedEnquiryQuotes(result.data || []);
+            setShowQuotesModal(true);
+        } catch (err) {
+            console.error("❌ Error fetching quotes:", err);
+            alert("Failed to fetch quotes");
+        }
+    };
+    const handleSendWinningQuotes = async (enquiryId, selectedEnquiryQuotes) => {
+        console.log(enquiryId, selectedEnquiryQuotes);
+        setSendingId(enquiryId);
+        try {
+            let quotesToSend = Array.isArray(selectedEnquiryQuotes) && selectedEnquiryQuotes.length > 0
+                ? selectedEnquiryQuotes
+                : null;
+
+            if (!quotesToSend) {
+                // Fallback: fetch quotes for this enquiry if state is empty
+                const resQuotes = await fetch(`http://localhost:4000/api/quotes/enquiry/${enquiryId}`);
+                const resultQuotes = await resQuotes.json();
+                quotesToSend = resultQuotes?.data || [];
+            }
+
+            console.log("quotesToSend", quotesToSend);
+            if (!Array.isArray(quotesToSend) || quotesToSend.length === 0) {
+                alert("No quotes found for this enquiry to send.");
+                return;
+            }
+
+            const payloadQuotes = quotesToSend.map((q) => ({
+                id: q._id || q.id,
+                vendorId: (q.vendorId && (q.vendorId._id || q.vendorId.__id || q.vendorId.id)) || q.vendorId,
+                price: q.price,
+                notes: q.notes || "",
+            }));
+            console.log(payloadQuotes);
+            const res = await fetch(`http://localhost:4000/api/enquiries/${enquiryId}/sendWinningQuotes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ quotes: payloadQuotes }),
+            });
+            const data = await res.json();
+            console.log(res);
+            if (data.success) {
+                alert("🏆 Winning quotes sent successfully!");
+            } else {
+                alert(`⚠️ Failed to send: ${data.message || "Unknown error"}`);
+            }
+        } catch (err) {
+            console.error("Error sending winning quotes:", err);
+            alert("❌ Error sending winning quotes");
+        } finally {
+            setSendingId(null);
         }
     };
     return (
@@ -440,17 +505,50 @@ export default function AdminDashboard() {
                                     <p className="text-sm text-gray-600">
                                         <strong>Assigned Vendors:</strong>{" "}
                                         {Array.isArray(e.assignedVendors) && e.assignedVendors.length > 0 ? (
-                                            e.assignedVendors.map((v, i) => (
-                                                <span key={v._id || v.__id || `${e._id || idx}-vendor-${i}`}>
-                                                    {v.name}
-                                                    {v.location?.city ? ` (${v.location.city})` : ""}
-                                                    {i < e.assignedVendors.length - 1 ? ", " : ""}
-                                                </span>
-                                            ))
+                                            <span>
+                                                {(() => {
+                                                    const seenIds = new Set();
+                                                    const labels = [];
+                                                    for (const entry of e.assignedVendors) {
+                                                        const vendorId = typeof entry === "string"
+                                                            ? entry
+                                                            : (entry?._id || entry?.__id || entry?.id);
+                                                        if (!vendorId || seenIds.has(vendorId)) continue;
+                                                        seenIds.add(vendorId);
+                                                        const vendorObj =
+                                                            (entry && typeof entry === "object" && (entry.name || entry.location))
+                                                                ? entry
+                                                                : vendors.find((vv) =>
+                                                                    vv._id === vendorId || vv.__id === vendorId || vv.id === vendorId
+                                                                );
+                                                        if (!vendorObj) continue;
+                                                        const cityName = vendorObj.location?.city || vendorObj.city || "";
+                                                        labels.push(`${vendorObj.name}${cityName ? ` (${cityName})` : ""}`);
+                                                    }
+                                                    return labels.join(", ");
+                                                })()}
+                                            </span>
                                         ) : (
                                             <span className="text-gray-400">No vendors assigned</span>
                                         )}
                                     </p>
+                                    <button
+                                        onClick={() => handleViewQuotes(e._id)}
+                                        className="mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                    >
+                                        View Quotes
+                                    </button>
+                                    {/* 🏆 Send Winning Quotes Button */}
+                                    <button
+                                        onClick={() => handleSendWinningQuotes(e._id, selectedEnquiryQuotes)}
+                                        disabled={sendingId === e._id}
+                                        className={`px-3 py-1 text-white text-sm rounded transition ${sendingId === e._id
+                                            ? "bg-gray-400 cursor-not-allowed"
+                                            : "bg-green-600 hover:bg-green-700"
+                                            }`}
+                                    >
+                                        {sendingId === e._id ? "Sending..." : "Send to User 🏆"}
+                                    </button>
                                 </li>
                             ))}
                         </ul>
@@ -474,6 +572,11 @@ export default function AdminDashboard() {
                 initialData={editingEnquiry}
                 vendors={vendors}
                 categories={categories}
+            />
+            <QuotesModal
+                show={showQuotesModal}
+                onClose={() => setShowQuotesModal(false)}
+                quotes={selectedEnquiryQuotes}
             />
         </div>
     );
