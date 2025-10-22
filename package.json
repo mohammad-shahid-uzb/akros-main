@@ -51,6 +51,9 @@
       "node_modules/(?!(axios)/)"
     ]
   },
+  "engines": {
+    "node": "20.x"
+  },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
