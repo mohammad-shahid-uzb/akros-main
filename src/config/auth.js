@@ -1,6 +1,6 @@
 export const loginWithTelegram = async (userData) => {
     try {
-        const res = await fetch("http://localhost:4000/api/auth/telegram", {
+        const res = await fetch("https://green-book-server-production.up.railway.app/api/auth/telegram", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(userData),

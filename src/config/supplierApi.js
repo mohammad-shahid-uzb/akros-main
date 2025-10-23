@@ -1,4 +1,4 @@
-export const API_BASE_URL = "http://localhost:4000"; // change this to your production domain when deploying
+export const API_BASE_URL = "https://green-book-server-production.up.railway.app"; // change this to your production domain when deploying
 
 const API_URL = `${API_BASE_URL}/api/suppliers`;
 

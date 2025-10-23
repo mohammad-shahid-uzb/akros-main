@@ -32,7 +32,7 @@ export default function AdminCreateMaterial() {
             // ✅ Allow testing mode
             const token = localStorage.getItem("token") || "TEST_ADMIN_TOKEN";
 
-            const res = await fetch("http://localhost:4000/api/materials", {
+            const res = await fetch("https://green-book-server-production.up.railway.app/api/materials", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

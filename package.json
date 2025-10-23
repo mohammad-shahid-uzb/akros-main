@@ -27,7 +27,7 @@
     "eject": "react-scripts eject",
     "serve": "serve -s build"
   },
-  "proxy": "http://localhost:4000",
+  "proxy": "https://green-book-server-production.up.railway.app",
   "eslintConfig": {
     "extends": [
       "react-app",

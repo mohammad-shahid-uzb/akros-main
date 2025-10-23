@@ -6,7 +6,7 @@ function LoginPage() {
         window.onTelegramAuth = function (user) {
             console.log("Telegram user authenticated:", user);
 
-            fetch("http://localhost:4000/api/auth/telegram", {
+            fetch("https://green-book-server-production.up.railway.app/api/auth/telegram", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(user),

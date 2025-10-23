@@ -138,8 +138,8 @@ export default function VendorModal({
 
         try {
             const requestInfo = initialData && (initialData._id || initialData.__id)
-                ? { method: "PUT", url: `http://localhost:4000/api/suppliers/${initialData._id || initialData.__id}` }
-                : { method: "POST", url: "http://localhost:4000/api/suppliers" };
+                ? { method: "PUT", url: `https://green-book-server-production.up.railway.app/api/suppliers/${initialData._id || initialData.__id}` }
+                : { method: "POST", url: "https://green-book-server-production.up.railway.app/api/suppliers" };
             console.log("[VendorModal] Sending request", requestInfo);
             const res = await fetch(requestInfo.url, {
                 method: requestInfo.method,
@@ -286,7 +286,7 @@ export default function VendorModal({
                                                             if (!supplierId) return;
                                                             const payload = { removeCertification: c.raw ?? href };
                                                             console.log('[VendorModal] Removing certification', payload);
-                                                            const res = await fetch(`http://localhost:4000/api/suppliers/${supplierId}/certifications`, {
+                                                            const res = await fetch(`https://green-book-server-production.up.railway.app/api/suppliers/${supplierId}/certifications`, {
                                                                 method: 'DELETE',
                                                                 headers: { 'Content-Type': 'application/json' },
                                                                 body: JSON.stringify(payload),

@@ -1,5 +1,5 @@
 // apiDataFetcher.js
-const API_BASE_URL = 'http://localhost:4000'; // Adjust as needed
+const API_BASE_URL = 'https://green-book-server-production.up.railway.app'; // Adjust as needed
 
 /**
  * Fetch a single endpoint with retries and robust error handling

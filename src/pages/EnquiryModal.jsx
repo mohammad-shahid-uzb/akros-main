@@ -11,7 +11,7 @@ const dummyPastSelections = [
 const DEFAULT_CATEGORIES = ["PLUMBING", "ELECTRICAL", "Carpentry"];
 
 // API Service for database operations
-const API_BASE = "http://localhost:4000";
+const API_BASE = "https://green-book-server-production.up.railway.app";
 
 const apiService = {
     // Save enquiry to database

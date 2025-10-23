@@ -30,7 +30,7 @@ export default function SupplierRegister() {
         try {
 
             // ✅ Register
-            const res = await fetch("http://localhost:4000/api/suppliers", {
+            const res = await fetch("https://green-book-server-production.up.railway.app/api/suppliers", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

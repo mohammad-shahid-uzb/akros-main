@@ -30,7 +30,7 @@ export default function AdminDashboard() {
     }, []);
     const fetchSuppliers = async () => {
         try {
-            const res = await fetch("http://localhost:4000/api/suppliers");
+            const res = await fetch("https://green-book-server-production.up.railway.app/api/suppliers");
             const data = await res.json();
             //console.log("data", data);
             setVendors(
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
     const fetchEnquiries = async () => {
         try {
 
-            const res = await fetch("http://localhost:4000/api/enquiries");
+            const res = await fetch("https://green-book-server-production.up.railway.app/api/enquiries");
 
 
             const result = await res.json();
@@ -138,8 +138,8 @@ export default function AdminDashboard() {
 
             // ✅ Send FormData request (do NOT set Content-Type)
             const url = _id
-                ? `http://localhost:4000/api/suppliers/${_id}`
-                : "http://localhost:4000/api/suppliers";
+                ? `https://green-book-server-production.up.railway.app/api/suppliers/${_id}`
+                : "https://green-book-server-production.up.railway.app/api/suppliers";
 
             const method = _id ? "PUT" : "POST";
 
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
             const payload = { status: "approved" };
 
             // Step 2: Make PUT request
-            const response = await fetch(`http://localhost:4000/api/suppliers/${_id}`, {
+            const response = await fetch(`https://green-book-server-production.up.railway.app/api/suppliers/${_id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
         if (window.confirm(`Are you sure you want to delete this vendor?`)) {
 
             try {
-                const res = await fetch(`http://localhost:4000/api/suppliers/${vendor_id}`, {
+                const res = await fetch(`https://green-book-server-production.up.railway.app/api/suppliers/${vendor_id}`, {
                     method: "DELETE",
                 });
 
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
     };
     const handleViewQuotes = async (enquiryId) => {
         try {
-            const res = await fetch(`http://localhost:4000/api/quotes/enquiry/${enquiryId}`);
+            const res = await fetch(`https://green-book-server-production.up.railway.app/api/quotes/enquiry/${enquiryId}`);
             const result = await res.json();
 
             if (!result.success) throw new Error(result.message || "Failed to fetch quotes");
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
 
             if (!quotesToSend) {
                 // Fallback: fetch quotes for this enquiry if state is empty
-                const resQuotes = await fetch(`http://localhost:4000/api/quotes/enquiry/${enquiryId}`);
+                const resQuotes = await fetch(`https://green-book-server-production.up.railway.app/api/quotes/enquiry/${enquiryId}`);
                 const resultQuotes = await resQuotes.json();
                 quotesToSend = resultQuotes?.data || [];
             }
@@ -269,7 +269,7 @@ export default function AdminDashboard() {
                 notes: q.notes || "",
             }));
             console.log(payloadQuotes);
-            const res = await fetch(`http://localhost:4000/api/enquiries/${enquiryId}/sendWinningQuotes`, {
+            const res = await fetch(`https://green-book-server-production.up.railway.app/api/enquiries/${enquiryId}/sendWinningQuotes`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ quotes: payloadQuotes }),
@@ -400,7 +400,7 @@ export default function AdminDashboard() {
                                                             {v.certifications.map((c, i) => (
                                                                 <li key={i}>
                                                                     <a
-                                                                        href={`http://localhost:4000${c.fileUrl}`}
+                                                                        href={`https://green-book-server-production.up.railway.app${c.fileUrl}`}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="underline hover:text-blue-800"

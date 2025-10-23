@@ -1,7 +1,7 @@
 // Node.js script to test API data fetching
 // Run with: node src/data/testApiData.js
 
-const API_BASE_URL = 'http://localhost:4000'; // Adjust port as needed
+const API_BASE_URL = 'https://green-book-server-production.up.railway.app'; // Adjust port as needed
 
 // Function to fetch data from API endpoints
 async function fetchApiData() {
